@@ -1,0 +1,1 @@
+# generate-mal-rewatched-list
