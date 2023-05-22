@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Generate a List With The Animes/Mangas Titles that were Re-Watched/Re-Read forked
+// @name         Generate a List With The Animes/Mangas Titles that were Re-Watched/Re-Read forked ledoxmedox
 // @namespace    MAL Automatic Anime/Manga List Generator
 // @version      0.11
 // @description  This is a tool to easily and quickly generate a list with the titles of what animes/mangas you have ReWatched/ReRead and how many times.
@@ -67,11 +67,20 @@
   { //Starts the loadingscreen function
     var loadingScreen = document.createElement("div"); //Create a new element
     loadingScreen.setAttribute("id", "loadingScreen"); //Adds an id to the element
-    loadingScreen.setAttribute("style", "background-color:rgba(0,0,0,0.75);position: fixed;width: 100%;height: 100%;top: 0;z-index: 1000;background-image: url(https://pa1.narvii.com/6258/61f5cd5c652efec508ff3c6e10798d26ccef6366_hq.gif);background-repeat: no-repeat;background-position: center;"); //Set the element css and img
+    loadingScreen.setAttribute("style", "background-color:rgba(0,0,0,0.75);position: fixed;width: 100%;height: 100%;top: 0;z-index: 1000;background-image: url(https://i.imgur.com/qWuWlrK.gif);background-repeat: no-repeat;background-position: center;"); //Set the element css and img
+    document.body.appendChild(loadingScreen);
 
+    //miku.gif https://pa1.narvii.com/6258/61f5cd5c652efec508ff3c6e10798d26ccef6366_hq.gif
+
+    var loadingTips = document.createElement("p"); //Create a new element for the text
+    loadingTips.innerText = "Shift+Ctrl+J to check progress (console)"; //Set the text content of the element
+    loadingTips.setAttribute("style", "width: 100%;position: fixed;background-color: black;color: white;font-size: 24px;text-align: center;padding: 10px;z-index: 9999;"); //Set the element css
+    loadingScreen.appendChild(loadingTips); //Add the text element as a child of the loadingScreen element
+
+    //Loading... text at bottom
     var loadingText = document.createElement("p"); //Create a new element for the text
-    loadingText.innerText = "Shift + CTRL + J to check progress (console)"; //Set the text content of the element
-    loadingText.setAttribute("style", "position:top;color:white;font-size:24px;text-align:center;"); //Set the element css
+    loadingText.innerText = "Loading..."; //Set the text content of the element
+    loadingText.setAttribute("style", "width: 100%;position: fixed;left: 50%;bottom: 10px;transform: translateX(-50%);background-color: black;color: white;font-size: 24px;text-align: center;border-radius: 10px;padding: 10px;z-index: 9999;"); //Set the element css
     loadingScreen.appendChild(loadingText); //Add the text element as a child of the loadingScreen element
 
     document.body.appendChild(loadingScreen); //Add the loading screen to the html body
