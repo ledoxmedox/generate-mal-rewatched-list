@@ -1,273 +1,130 @@
 // ==UserScript==
-// @name         Generate a List With The Animes/Mangas Titles that were Re-Watched/Re-Read forked ledoxmedox
+// @name         Generate a List With The Animes/Mangas Titles that were Re-Watched/Re-Read FORKED LEDOXMEDOX FIX DOWNLOAD HTML LIST AND MANY THINGS
 // @namespace    MAL Automatic Anime/Manga List Generator
-// @version      0.11
-// @description  This is a tool to easily and quickly generate a list with the titles of what animes/mangas you have ReWatched/ReRead and how many times.
+// @version      13
+// @description  Easily and quickly generate a list with all ReWatched/ReRead entries and how many times.
 // @author       hacker09
-// @match        https://myanimelist.net/animelist/*
-// @match        https://myanimelist.net/mangalist/*
+// @match        https://myanimelist.net/profile/*
+// @exclude      https://myanimelist.net/profile/*/*
 // @icon         https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://myanimelist.net&size=64
+// @grant        GM.xmlHttpRequest
+// @connect      anime.jhiday.net
 // @run-at       document-end
-// @grant        none
 // ==/UserScript==
 
 (function() {
   'use strict';
-  var $ = window.jQuery; //Defines That The Symbol $ Is A jQuery
-  var nextpagenum = 0; //Create a variable to hold the page number
-  var increaseby = 300; //Create a variable to Increase the list page number
-  var rewatchedlistbtn = document.createElement("a"); //Creates an a element
-  var TotalCompletedEntries = 0; //Create a variable to hold the Total Completed Entries Number
-  var username = window.location.pathname.split('/')[2]; //Get the username on the url to use later
-  var TotalReWatchedAnimes, TotalReReadMangas, type, interval, text, totalanimestwo, Condition, NEWStyle; //Make these variables global
+  var HomeresponseText, TotalCompletedEntries, HTMLresponse, AccExists, type, text, FinalHTML = '<a id="dwnldLnk"</a>', CompleteJSONList = [], progress = 1, nextpagenum = 0, increaseby = 300; //Make these variables global
 
-  window.location.pathname.split('/')[1] === 'animelist' ? (type = 'anime', text = 'ReWatched Animes') : (type = 'manga', text = 'ReRead Mangas'); //Check If the user on an animelist or not and create some variables
-
-  rewatchedlistbtn.setAttribute("id", "rewatchedlistbtn"); //Adds the id rewatchedlistbtn to the a element
-  rewatchedlistbtn.setAttribute("style", "cursor: pointer;"); //Set the css for the button
-  type === 'anime' ? rewatchedlistbtn.innerHTML = "Generate ReWatched List" : rewatchedlistbtn.innerHTML = "Generate ReRead List"; //Add the text on the Button
-
-  if (document.querySelector("#advanced-options-button") === null) //Checks if the Filters button on the modern list style doesn't exist,if not then the user is using an old classic list style
-  { //Starts the if condtion
-    document.querySelector("a.table_headerLink").parentElement.appendChild(rewatchedlistbtn); //Defines that the 'Generate ReWatched/ReRead List' button should appear close to the 'Anime Title' or 'Manga Title' text on the old classic style list.
-    rewatchedlistbtn.onclick = function() { //Detects the mouse click on the 'Generate ReWatched/ReRead List' button
-      NEWStyle = false; //Add the value false to the variable NEWStyle
-      loadingscreen(); //Start the loading screen function
-      setTimeout(scrape, 500); //Start the scrape function
-    }; //Shows a message in the console for dev purposes, and run the scrape function.Classic list styles doesn't need to be scrolled down.
-  } //Finishes the if condition
-  else //If the Filters button on the modern list style exists, then the user is using the modern list style
-  { //Starts the else condtion
-    document.querySelector("#advanced-options-button").parentElement.appendChild(rewatchedlistbtn); //Defines that the 'Generate ReWatched/ReRead List' button should appear close to the Filter button on the modern style list
-
-    rewatchedlistbtn.onclick = async function() { //Detects the mouse click on the 'Generate ReWatched/ReRead List' button
-      NEWStyle = true; //Add the value true to the variable NEWStyle
-      await loadingscreen(); //Start the loading screen function
-
-      if (Condition) //Run the codes below only if the user list has more than 300 entries
+  GM.xmlHttpRequest({ //Start a new xmlHttpRequest to get the last update info and check whether the account exists
+    url: `https://anime.jhiday.net/hof/user/${location.href.split(/\//)[4]}`,
+    onload: ({ responseText }) => { //When the xmlHttpRequest is completed
+      HomeresponseText = responseText; //Create a new const
+      if (new DOMParser().parseFromString(HomeresponseText, "text/html").body.innerText.search("Not Found") > -1) //If the account doesn't exist
       { //Starts the if condition
-        console.log('Scrolling Down. Please Wait!'); //Shows a message in the console for dev purposes
-        interval = setInterval(function() { //Starts the Function that automatically "Press the keyboard key End"
-          if (document.querySelectorAll("td.data.number").length !== TotalCompletedEntries) //If condition that detect if the whole list is loaded or not
-          { //Starts the if condition
-            window.scrollTo(0, document.body.scrollHeight); //Scrolls the website till the whole list is loaded
-          } //Finishes the if condition
-          else //When the whole list is loaded
-          { //Starts the else condition
-            console.log('Full List Loaded! Stopping Scrolling Down Now!'); //Shows a message in the console for dev purposes
-            clearInterval(interval); //Breaks the timer that scrolls the page down every 0 secs
-            scrape(); //Run the Scrapping Function
-          } //Finishes the else condition
-        }, 0); //Finishes the interval function that will run the function every 0 secs
+        AccExists = false; //Creates a new variable
+        GM.xmlHttpRequest({ //Start a new xmlHttpRequest to create an account
+          method: "GET",
+          url: "https://anime.jhiday.net/auth/redirect",
+          onload: ({ responseText }) => { //When the xmlHttpRequest is completed
+            grecaptcha.execute(new DOMParser().parseFromString(responseText, "text/html").querySelector('meta[name="recaptcha_site_key"]').content, { action: "submit" }).then((recaptchaResponse) => { //ByPass the Google Recaptcha
+              GM.xmlHttpRequest({ //Start a new xmlHttpRequest to create an account
+                method: "POST",
+                url: "https://myanimelist.net/submission/authorization",
+                headers: { "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7", "content-type": "application/x-www-form-urlencoded" },
+                data: `action_type=approve_authz&csrf_token=${new DOMParser().parseFromString(responseText, "text/html").querySelector('meta[name="csrf_token"]').content}&g-recaptcha-response=${recaptchaResponse}`
+         });}); //Finishes the xmlHttpRequest
+          } //Finishes the onload function
+        }); //Finishes the xmlHttpRequest function
       } //Finishes the if condition
-    }; //Finishes the onclick function
-  } //Finishes the else condition
-
-  async function loadingscreen() //Creates a loading screen function that also checks if the user is on the completed list or not, and get the needed variables
-  { //Starts the loadingscreen function
-    var loadingScreen = document.createElement("div"); //Create a new element
-    loadingScreen.setAttribute("id", "loadingScreen"); //Adds an id to the element
-    loadingScreen.setAttribute("style", "background-color:rgba(0,0,0,0.75);position: fixed;width: 100%;height: 100%;top: 0;z-index: 1000;background-image: url(https://i.imgur.com/qWuWlrK.gif);background-repeat: no-repeat;background-position: center;"); //Set the element css and img
-    document.body.appendChild(loadingScreen);
-
-    //miku.gif https://pa1.narvii.com/6258/61f5cd5c652efec508ff3c6e10798d26ccef6366_hq.gif
-
-    var loadingTips = document.createElement("p"); //Create a new element for the text
-    loadingTips.innerText = "Shift+Ctrl+J to check progress (console)"; //Set the text content of the element
-    loadingTips.setAttribute("style", "width: 100%;position: fixed;background-color: black;color: white;font-size: 24px;text-align: center;padding: 10px;z-index: 9999;"); //Set the element css
-    loadingScreen.appendChild(loadingTips); //Add the text element as a child of the loadingScreen element
-
-    //Loading... text at bottom
-    var loadingText = document.createElement("p"); //Create a new element for the text
-    loadingText.innerText = "Loading..."; //Set the text content of the element
-    loadingText.setAttribute("style", "width: 100%;position: fixed;left: 50%;bottom: 10px;transform: translateX(-50%);background-color: black;color: white;font-size: 24px;text-align: center;border-radius: 10px;padding: 10px;z-index: 9999;"); //Set the element css
-    loadingScreen.appendChild(loadingText); //Add the text element as a child of the loadingScreen element
-
-    document.body.appendChild(loadingScreen); //Add the loading screen to the html body
-
-    const response = await fetch('https://api.jikan.moe/v4/users/' + username + '/statistics'); //Fetch
-    const newDocument = await response.json(); //Gets the fetch response
-    TotalReWatchedAnimes = newDocument.data.anime.rewatched; //Creates a variable to hold the actual TotalReWatchedAnimes value
-    TotalReReadMangas = newDocument.data.manga.reread; //Creates a variable to hold the actual TotalReReadMangas value
-
-    if (location.href.match('\\?status=2') === null) //Checks if the user is on the completed animes/mangas tab or not
-    { //Starts the if condition
-      alert("Execute this on the 'Completed' page! \nRedirecting. \nTry again after the page loads."); //Show an error alert message to the user, if the user is not on an completed list
-      window.location.replace(window.location.href.split('?')[0] + "?status=2"); //Redirects the user to the completed list
-      throw new Error("Redirecting"); //Show an error alert message on the dev console of the user
-    } //Finishes the if condition
-    if ((type !== 'anime' && TotalReReadMangas === 0) || (type === 'anime' && TotalReWatchedAnimes === 0)) //If the user is already on the completed page, check whether or not the user rewatched or reread anything
-    { //Starts the if condition
-      location.reload(); //Reload the page
-      alert('The user ' + username + ' doesn\'t have any ' + text + '!\nThe page will be reloaded!'); //Display a message
-    } //Finishes the if condition
-    if (NEWStyle) //Run the codes below only if the list is using the new style
-    { //Starts the if condition
-      if (document.querySelectorAll("td.data.number").length < 300) //Check if the user list has less than 300 entries
-      { //Starts the if condition
-        Condition = false; //Add the value false to the var Condition
-        console.log('This user has less than 300 Completed Entries\nFull List is Already Loaded!'); //Shows a message in the console for dev purposes
-        scrape(); //Run the Scrapping Function
-      } //Finishes the if condition
-      else //If the user list has 300 or more entries
+      else //If the account already exists
       { //Starts the else condition
-        Condition = true; //Add the value true to the var Condition
-        while (true) { //Starts the while condition to get the Total Number of Entries on the user completed list
-          console.log('This user has more than 300 Completed Entries\nGetting the Total Completed Entries Number...'); //Shows a message in the console for dev purposes
-          const html = await (await fetch('https://myanimelist.net/' + type + 'list/' + username + '/load.json?status=2&offset=' + nextpagenum)).json(); //Fetches the user completed list
-          nextpagenum += increaseby; //Increase the next page number
-          totalanimestwo = html.length; //Variable to get the Total Completed Entries Number
-          TotalCompletedEntries += totalanimestwo; //Sum the Total Completed Entries Number and add the result to the variable TotalCompletedEntries
-          if (totalanimestwo !== 300) //If the next page has less than 300 completed entries stop looping the whlie condition
-          { //Starts the if condition
-            console.log('Finished Getting the Total Completed Entries Number!'); //Shows a message in the console for dev purposes
-            return; //Return whether or not the fetched page has less than 300 completed entries
-          } //Finishes the if condition
-        } //Finishes the while condition
+        AccExists = true; //Creates a new variable
+        GM.xmlHttpRequest({ //Start a new xmlHttpRequest to update the user stats
+          url: `https://anime.jhiday.net/hof/ajax/update-user/${location.href.split(/\//)[4]}`
+      }); //Finishes the xmlHttpRequest
       } //Finishes the else condition
-    } //Finishes the if condition
-  } //Finishes the loadingscreen function
+    } //Finishes the onload function
+  }); //Finishes the xmlHttpRequest function
 
-  function scrape() //Function that will scrape the page for rewatched/reread values
-  { //Starts the function scrape
-    console.log('Starting To Scrape...Please Wait!'); //Shows a message in the console for dev purposes
-    var titles = []; //Creates a blank array to use latter
-    var rewatches = []; //Creates a blank array to use latter
-    var resultArray = []; //Creates a blank array to use latter
-    var moreLinks = document.querySelectorAll('a'); //Defines a variable named 'moreLinks' that will be used to click on all the more buttons on the completed page
-    var titles_old = document.querySelectorAll('div table tbody tr a.animetitle span'); //Select only the anime title on the old style list
-    var titles_new = document.querySelectorAll('tbody.list-item tr.list-table-data td.data.title a.link.sort'); //Select only the anime title on the Modern default style list
-    var old_list = false; //Variable that can be changed latter to the value 'true' if the user used the script on an old classic style list.The value 'false' will be kept if the user used the script on the new modern list style.
-    var result = 'data:text/html;charset=utf-8,<style>html,body{font: menu;background-color: rgb(17, 17, 17);color: white;margin: 0;padding: 0;}</style><div style="max-width:650px;font-size: 18px;margin:0px auto;">'; //The HTML and CSS that will be added to the final output
+  document.querySelectorAll("li.clearfix.mb12 > span")[7].outerHTML = `<span title="Click to generate the Rewatched Anime List" class="di-ib fl-l fn-grey2" style="color: ${document.querySelector(".dark-mode") !== null ? '#abc4ed' : 'blue'} !important; cursor: pointer;">Rewatched</span>`; //The CSS for the ReWatched "button"
+  document.querySelectorAll("li.clearfix.mb12")[6].onclick = function() //When the ReWatched text is clicked
+  { //Starts the onclick event listener
+    type = 'anime'; //Change the variable type
+    text = 'ReWatched Anime'; //Change the variable type
 
-
-
-    
-    if (titles_old.length > titles_new.length) //Checks if the user list style is the old classic style or the new modern style
+    if (AccExists && confirm(`OK = Instantly shows the ${text} list.\n\nCancel = Gets the most recent ${text} list.\n(This process will take ${new Date(parseInt(document.querySelectorAll("span.di-ib.fl-r.lh10")[1].innerText.replace(',', '')) * 200).toLocaleTimeString([], { minute: "numeric", second: "2-digit", })} minutes to complete)`)) //Show the confirmation alert box text if the acc exists
     { //Starts the if condition
-      titles = titles_old; //If the user used the script on an old classic list style, the titles will be added to the titles array
-      old_list = true; //Variable old_list will be changed to the value 'true' if the user used the script on an old classic style list
+      GM.xmlHttpRequest({ //Start a new xmlHttpRequest to get the user ReWatches
+        url: `https://anime.jhiday.net/hof/ajax/rewatches/${location.href.split(/\//)[4]}`,
+        onload: ({ responseText }) => { //When the xmlHttpRequest is completed
+          document.documentElement.innerHTML = `<body style="font: menu"><style>img.malIcon {display: none;}</style><div style='max-width:650px; font-size: 18px; margin:0px auto; white-space: nowrap;'><a>Last Updated ${new DOMParser().parseFromString(HomeresponseText, "text/html").querySelector("#updateBlock > p > i").innerText}</a><a href='https://myanimelist.net/profile/${location.pathname.split('/')[2]}' style='margin-inline-start: 226px;'>Return To User Profile</a><a id='dwnldLnk' style='margin-left: 910px !important; white-space: nowrap; margin-top: -21px !important; float: left;' download='${location.href.split(/\//)[4]} ${text} List!.html' title='${location.href.split(/\//)[4]} ${text} List!.html'>Download List</a><h1> ${location.href.split(/\//)[4]} ${text} List</h1><h3><em>List of Entries that ${location.href.split(/\//)[4]} has ReWatched/ReRead:</em></h3><ul><style>ul a, a:visited, a:active {text-decoration:none; color:inherit;} a:hover {text-decoration:underline;}</style>${new DOMParser().parseFromString(responseText, "text/html").querySelector("body > ul:nth-child(4)").innerHTML.replaceAll('/hof', 'https://myanimelist.net')}</ul></div></body>`; //Add the ReWatched/ReRead list on the page
+          document.getElementById('dwnldLnk').href = `data:text/html;charset=utf-8,${encodeURIComponent(document.documentElement.innerHTML.replace('Download List', ' '))}`; //Adds the scrapped results as a link on the a element
+          scrollTo({ top: 0, behavior: "smooth" }); //Scroll the page to the top
+        } //Finishes the onload function
+      }); //Finishes the xmlHttpRequest function
     } //Finishes the if condition
-    else //If the user used the script on a new modern list style
+    else //If the user chose Cancel or the Account doesn't exist
     { //Starts the else condition
-      for (var i = 0; i < titles_new.length; i++) //This for condition is responsible for getting all the anime titles
-      { //Starts the for condition
-        titles[i] = titles_new[i].text; //Add all titles to an array
-      } //Finishes the for condition
+      AccExists === false && parseInt(document.querySelectorAll(".fl-r > li > .fl-r")[1].innerText.replace(',', '')) !== 0 ? alert(`This process will take ${new Date(parseInt(document.querySelectorAll("span.di-ib.fl-r.lh10")[1].innerText.replace(',', '')) * 200).toLocaleTimeString([], { minute: "numeric", second: "2-digit", })} minutes to complete`) : ''; //Displays a message
+      NETscrape(); //Start the NETscrape function
     } //Finishes the else condition
+  }; //Finishes the onclick event listener
 
-    result += "<h1> " + username + " " + text + " List</h1>"; //h1 element that will be added to the final HTML and CSS output
-    if (type == "anime") //If the type is anime
+  document.querySelectorAll("li.clearfix.mb12 > span")[18] === undefined ? '' : document.querySelectorAll("li.clearfix.mb12 > span")[18].outerHTML = `<span title="Click to generate the Reread Manga List" class="di-ib fl-l fn-grey2" style="color: ${document.querySelector(".dark-mode") !== null ? '#abc4ed' : 'blue'} !important; cursor: pointer;">Reread</span>`; //The CSS for the ReRead "button"
+  document.querySelectorAll("li.clearfix.mb12")[14] === undefined ? '' : document.querySelectorAll("li.clearfix.mb12")[14].onclick = function() //When the ReRead text is clicked
+  { //Starts the onclick event listener
+    type = 'manga'; //Change the variable type
+    text = 'ReRead Manga'; //Change the variable type
+    parseInt(document.querySelectorAll(".fl-r > li > .fl-r")[4].innerText.replace(',', '')) !== 0 ? alert(`This process will take ${new Date(parseInt(document.querySelectorAll("span.di-ib.fl-r.lh10")[6].innerText.replace(',', '')) * 200).toLocaleTimeString([], { minute: "numeric", second: "2-digit", })} minutes to complete`) : ''; //Displays a message
+    NETscrape(); //Start the NETscrape function
+  }; //Finishes the onclick event listener
+
+  async function NETscrape() { //Starts the NETscrape function
+    if ((type === 'anime' && parseInt(document.querySelectorAll(".fl-r > li > .fl-r")[1].innerText.replace(',', '')) === 0) || (type === 'manga' && parseInt(document.querySelectorAll(".fl-r > li > .fl-r")[4].innerText.replace(',', '')) === 0)) //If the user haven't ReWatched or ReRead anything
     { //Starts the if condition
-      result += "<h3><em>List of Animes that " + username + " has watched and ReWatched:</em></h3>"; //If the type is anime then add 'How many times username has watched and ReWatched' to The HTML and CSS that will be added to the output when the script is done
+      alert(`The user ${location.pathname.split('/')[2]} doesn\'t have any ${text}!`); //Displays a message
+      throw (`The user ${location.pathname.split('/')[2]} doesn\'t have any ${text}!`); //Stops the script
     } //Finishes the if condition
-    else //If the type is manga
-    { //Finishes the else condition
-      result += "<h3><em>List of Mangas that " + username + " has read and ReRead:</em></h3>"; //If the type is manga then add ''How many times username has read and ReRead' to The HTML and CSS that will be added to the output when the script is done
-    } //Finishes the else condition
 
-    if (old_list) //If the script is working on an old classic list style
-    { //Starts the if condition
-      //The 12 lines below Fetches the rewatch count information bypassing the 'More' link on old classic list styles
-      $("div.hide").each(function(index, value) {
-        var series_id = $(value).attr('id').split('more')[1];
-        $.post("/includes/ajax-no-auth.inc.php?t=6", {
-          color: 1,
-          id: series_id,
-          memId: $('#listUserId').val(),
-          type: $('#listType').val()
-        }, function(data) {
-          if (type == "anime") rewatches[index] = $(data.html).find('strong')[0].innerHTML; //If the type is anime start scrapping the anime rewatched values
-          if (type == "manga") //If the type is anime start scrapping the manga 'Times Read' values
-          { //Starts the if condition
-            var moreSection = $(data.html).find('td').html(); //Opens the more button on old classic style list
-            var timesReadIndex = moreSection.indexOf("Times Read"); //Detects how many times a manga was read
-            rewatches[index] = moreSection.charAt(timesReadIndex + 12);
-          } //Finishes the if condition
-        }, "json"); //The scrapping isn't done using HTML,it's done by scrapping only the json file that's loaded when the user goes down (loads more animes/mangas) ('XHR Get' Method)
-      }); //Finishes the each condition
-    } //Finishes the if condition
-    else //If the script was run on a new modern list style
-    { //Starts the else condition
-      console.log('Opening And Scraping All "More" Buttons.Please Wait!'); //Shows a message in the console for dev purposes
-      //The 6 lines Below Will Click all links labeled 'More' to get the rewatch counts later on the page
-      for (i = moreLinks.length; i--;) { //Starts the for condition
-        if (moreLinks[i].innerHTML == 'More') { //If the moreLinks variable has the text More
-          moreLinks[i].click(); //Click on the moreLinks button
-        } //Finishes the if condition
-      } //Finishes the for condition
-    } //Finishes the else condition
+    document.body.insertAdjacentHTML('beforeEnd', '<div id="loadingScreen" style="position: fixed;width: 100%;height: 100%;background-color: #00000054;top: 0;z-index: 1000;background-image: url(https://i.imgur.com/ka06oyE.gif);background-repeat: no-repeat;background-position: center;"></div>'); //Show the loading screen
 
-    document.querySelector("head").innerHTML = "<title>Almost Done...</title>"; //Change the tab title
-    console.log('Almost Done...'); //Shows a message on the console for dev purposes
-
-    wait(); //Repeats every 1 second until all More-sections are processed
-
-    function wait() //Creates the wait function
-    { //Starts the function wait
-      if (type == "manga" && document.querySelector("#advanced-options-button") !== null) //If the list type is manga and it's using the Modern Style
+    while (true) { //Starts the while condition to get the Total Number of Entries on the user-completed list
+      document.title = 'Getting all completed entries...'; //Shows the current process on the tab title
+      const ListJSON = await (await fetch(`https://myanimelist.net/${type}list/${location.pathname.split('/')[2]}/load.json?status=2&offset=${nextpagenum}`)).json(); //Fetch
+      nextpagenum += increaseby; //Increase the next page number
+      var totalanimestwo = ListJSON.length; //Store the Total Completed Entries Number
+      ListJSON.forEach(el => CompleteJSONList.push(el)); //Save the current page json entries on the CompleteJSONList variable
+      TotalCompletedEntries += totalanimestwo; //Sum the Total Completed Entries Number and add the result to the variable TotalCompletedEntries
+      if (totalanimestwo !== 300) //If the next page has less than 300 completed entries stop the while condition
       { //Starts the if condition
-        for (var i = document.querySelectorAll("td.td1.borderRBL").length; i--;) { //For condition to make the ReRead values bold, otherwise the script won't detect ReRead Mangas
-          document.querySelectorAll("td.td1.borderRBL")[i].outerHTML = "Times Read:" + "<strong>" + document.querySelectorAll("td > br:nth-child(8)")[i].nextSibling.textContent.replace(/[^0-9]+/g, ""); + "</strong>"; //Make the ReRead values bold
-        } //Finishes the for condition
-      } //Finishes the if condition
-      setTimeout(function() //Creates the timeout function
-        { //Starts the timeout function
-          if (!old_list) rewatches = document.querySelectorAll('tbody.list-item tr.more-info strong'); //If the script was run on an new modern list style then use this command to set the variable rewatches
-          if (rewatches.length != titles.length) //Check if All sections were or not opened
-          { //Starts the if condition
-            wait(); //If All sections were not opened check it again after 1 seconds
+        for (const el of CompleteJSONList) { //Starts a for loop for every single entry JSON response
+          document.title = `Processing entry ${progress++} of ${CompleteJSONList.length}`; //Shows the current process on the tab title
+          HTMLresponse = await (await fetch("https://myanimelist.net/includes/ajax-no-auth.inc.php?t=6", { //Fetch the more info btn HTML codes for every single entry JSON response
+            "headers": {
+              "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
+            },
+            "body": `color=1&id=${type === 'anime' ? el.anime_id : el.manga_id}&memId=${document.querySelector('input[name="profileMemId"]') === null ? document.querySelector(".mr0").href.match(/\d+/) : document.querySelector('input[name="profileMemId"]').value}&type=${type}&csrf_token=${document.head.querySelector("[name='csrf_token']").content}`,
+            "method": "POST"
+          })).text(); //Finishes the fetch
+
+          const newDocument = new DOMParser().parseFromString(HTMLresponse, 'text/html'); //Parses the fetch response
+
+          if ((type === 'anime' && parseInt(newDocument.querySelector('body > table > tbody > tr > td > div > a > strong').innerText.split('<')[0]) >= 1) || (type === 'manga' && parseInt(newDocument.body.textContent.match(/(?<=Times Read: )[0-9]+/)[0]) >= 1)) { //If the current entry has been ReWatched/ReRead at least once
+            FinalHTML += `<li>${(type === 'anime' && parseInt(newDocument.querySelector('body > table > tbody > tr > td > div > a > strong').innerText.split('<')[0]) > 1) || (type === 'manga' && parseInt(newDocument.body.textContent.match(/(?<=Times Read: )[0-9]+/)[0]) >= 1) ? `<b>[x${type === 'anime' ? newDocument.querySelector('body > table > tbody > tr > td > div > a > strong').innerText.split('<')[0] : parseInt(newDocument.body.textContent.match(/(?<=Times Read: )[0-9]+/)[0])}] </b>` : ''}<a href='https://myanimelist.net${type === 'anime' ? el.anime_url : el.manga_url}'>${type === 'anime' ? el.anime_title : el.manga_title}</a></li>`; //Add the entry info on the Final HTML codes result
           } //Finishes the if condition
-          else //If All sections were opened
-          { //Starts the else condition
-            if (old_list) //Check if the script was run in an old classic list style or not
-            { //Starts the if condition
-              for (var i = 0; i < titles.length; i++) {
-                //Parse rewatched shows into an array of arrays with rewatch count as index and add them to the downloaded file when the script is done
-                if (rewatches[i] > 0) {
-                  if (resultArray[rewatches[i]]) {
-                    resultArray[rewatches[i]] = resultArray[rewatches[i]].concat("<a href=" + titles[i].parentElement.href + " target='_blank' style='text-decoration: none;color: rgb(255, 255, 255);'>" + "<li onmouseover='this.style.color=\"silver\"' onmouseout='this.style.color=\"white\"'>" + titles[i].textContent + "</li></a>");
-                  } else { //Starts the else condition
-                    resultArray[rewatches[i]] = "<b>" + (parseInt(rewatches[i]) + 1) + " times:</b>"; //+1 shows the total watched times number. -1 shows the total Re-Watched times only.
-                    resultArray[rewatches[i]] = resultArray[rewatches[i]].concat("<ul>");
-                    resultArray[rewatches[i]] = resultArray[rewatches[i]].concat("<a href=" + titles[i].parentElement.href + " target='_blank' style='text-decoration: none;color: rgb(255, 255, 255);'>" + "<li onmouseover='this.style.color=\"silver\"' onmouseout='this.style.color=\"white\"'>" + titles[i].textContent + "</li></a>");
-                  } //Finishes the else condition
-                } //Finishes the if condition
-              } //Finishes the for condition
-            } //Finishes the if condition
-            else //If the script was run in on the new default modern list style
-            { //Starts the else condition
-              for (i = 0; i < titles.length; i++) {
-                //Parse rewatched shows into an array of arrays with rewatch count as index
-                if (rewatches[i].innerHTML > 0) {
-                  if (resultArray[rewatches[i].innerHTML]) {
-                    resultArray[rewatches[i].innerHTML] = resultArray[rewatches[i].innerHTML].concat("<a href=" + titles_new[i].href + " target='_blank' style='text-decoration: none;color: rgb(255, 255, 255);'>" + "<li onmouseover='this.style.color=\"silver\"' onmouseout='this.style.color=\"white\"'>" + titles[i].trim() + "</li></a>");
-                  } //Finishes the if condition
-                  else { //Starts the else condition
-                    resultArray[rewatches[i].innerHTML] = "<b>" + (parseInt(rewatches[i].innerHTML) + 1) + " times:</b>"; //+1 shows the Re-Watched/Re-Read and the watched/read total numbers. -1 shows only the total times an anime/manga was Re-Watched/Re-Read.
-                    resultArray[rewatches[i].innerHTML] = resultArray[rewatches[i].innerHTML].concat("<ul>"); //Adds the divisories (div like html tags) between rewatched/reread numbers, and concatenates them
-                    resultArray[rewatches[i].innerHTML] = resultArray[rewatches[i].innerHTML].concat("<a href=" + titles_new[i].href + " target='_blank' style='text-decoration: none;color: rgb(255, 255, 255);'>" + "<li onmouseover='this.style.color=\"silver\"' onmouseout='this.style.color=\"white\"'>" + titles[i].trim() + "</li></a>"); //Adds the rewatched/reread titles inside the tags <li> , and concatenates them
-                  } //Finishes the else condition
-                } //Finishes the if condition
-              } //Finishes the for condition
-            } //Finishes the else condition
+        } //Finishes the for loop
 
-            resultArray.reverse(); //This command makes the final list output be organized by starting the list with the most rewatched/reread values, if this line is removed, the output list will start with animes rewatched once and the last animes on the list will be the most rewatched/reread ones.
-            resultArray.forEach(function(value, index, array) {
-              result += value.concat("</ul>");
-            });
+        document.documentElement.innerHTML = FinalHTML === '<a id="dwnldLnk"</a>' ? `The Rewatched/ReRead entries number shown on the user ${location.href.split(/\//)[4]} profile page is wrong and outdated!<br><br>${location.href.split(/\//)[4]} currently has no Rewatched/ReRead entries!` : `<title>Done! List Generated!</title><div style='max-width:650px; font-size: 18px; margin:0px auto; white-space: nowrap;'><a href='https://myanimelist.net/profile/${location.pathname.split('/')[2]}' style='margin-inline-start: 226px;'>Return To User Profile</a><a id='dwnldLnk' style='margin-left: 910px !important; white-space: nowrap; margin-top: -21px !important; float: left;' download='${location.href.split(/\//)[4]} ${text} List!.html' title='${location.href.split(/\//)[4]} ${text} List!.html'>Download List</a><h1> ${location.href.split(/\//)[4]} ${text} List</h1><h3><em>List of Entries that ${location.href.split(/\//)[4]} has ReWatched/ReRead:</em></h3><ul>${FinalHTML}</ul></div>`; //Add the ReWatched/ReRead list on the page
 
-            document.querySelector("body").insertAdjacentHTML('beforebegin', "<a style='position: absolute; left:0px;'>'Total Entries Processed: " + rewatches.length + " X Total Entries: " + titles.length + "</a>"); //Create an a element
-            document.querySelector("body").insertAdjacentHTML('beforebegin', "<a id='dwnldLnk' style='margin-left: 1200px;' download='" + username + " ReWatched_ReRead List!' title='" + username + " ReWatched_ReRead List!.html'>Download List</a>"); //Create and show the download button
-            document.getElementById('dwnldLnk').href = result; //Adds the scrapped results as a link on the a element
-            document.querySelector("body").insertAdjacentHTML('beforebegin', "<a href='https://myanimelist.net/profile/" + username + "' style='margin-inline-start: -700px;'>Return To User Profile</a>"); //Creates and show an a element on the screen
+        [...document.querySelectorAll("ul > li")].sort((a, b) => { //Sorts the list
+          return ((b.textContent.match(/\[x(\d+)\]/) ? parseInt(b.textContent.match(/\[x(\d+)\]/)[1]) : -1) - (a.textContent.match(/\[x(\d+)\]/) ? parseInt(a.textContent.match(/\[x(\d+)\]/)[1]) : -1)) || a.textContent.localeCompare(b.textContent);}).forEach(item => document.querySelector("ul").appendChild(item)); //Sort by the amount of ReWatches/ReReads first, then alphabetically
 
-            document.querySelector("head").innerHTML = "<title>Done! List Generated!</title>"; //Change the tab title
-            console.log('Done! Showing The Results Page!'); //Shows a message in the console for dev purposes
-            document.querySelector("body").innerHTML = result.replace('data:text/html;charset=utf-8,', '');
-            window.scrollTo(0, 0); //Scroll the page to the top
-          } //Finishes the else condition
-        }, 1000); //Finishes the settimeout function.Wait 1 second
-    } //Finishes the function wait
-  } //Finishes the scrape function
-})(); //Finishes the tampermonkey function
+        document.querySelector("#dwnldLnk").href = `data:text/css;charset=utf-8,${encodeURIComponent(document.documentElement.innerHTML.replace('Download List', ''))}`; //Adds the scrapped results as a link on the a element
+
+        scrollTo({ top: 0, behavior: "smooth" }); //Scroll the page to the top
+        return; //Stops the while condition
+      } //Finishes the if condition
+    } //Finishes the while condition
+  } //Finishes the NETscrape function
+})();
